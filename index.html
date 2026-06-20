@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Auth Real con Tailwind</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-50 backdrop-blur-md bg-white/70 border-b border-slate-200/80">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">
+                ModernUI
+            </div>
+            <div id="nav-actions">
+                </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-16 flex flex-col lg:flex-row items-center justify-center gap-16 w-full">
+        
+        <div class="max-w-xl text-center lg:text-left">
+            <span class="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 mb-6">
+                🔒 Google Identity SDK Oficial
+            </span>
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
+                Acceso real con <br>
+                <span class="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Tu Cuenta de Google</span>
+            </h1>
+        </div>
+
+        <div class="w-full max-w-md">
+            <div id="auth-card" class="bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-300">
+                
+                <div id="login-view" class="block">
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-2">Iniciar Sesión</h2>
+                        <p class="text-sm text-slate-500">Utiliza el componente nativo de Google para acceder.</p>
+                    </div>
+                    
+                    <div class="flex justify-center my-6">
+                        <div id="buttonDiv"></div>
+                    </div>
+                </div>
+
+                <div id="profile-view" class="hidden flex flex-col items-center text-center">
+                    <div class="relative mb-4">
+                        <img id="user-photo" src="" alt="Foto de perfil" class="h-24 w-24 rounded-full object-cover ring-4 ring-indigo-50 border-2 border-white shadow-md">
+                        <span class="absolute bottom-1 right-1 bg-emerald-500 h-4 w-4 rounded-full border-2 border-white"></span>
+                    </div>
+                    
+                    <h2 id="user-name" class="text-xl font-bold text-slate-900"></h2>
+                    <p id="user-email" class="text-sm text-slate-500 mb-6"></p>
+                    
+                    <div class="w-full bg-slate-50 p-4 rounded-xl border border-slate-150 text-left mb-6">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Token de acceso verificado:</span>
+                            <span class="font-medium text-emerald-600 flex items-center gap-1">🟢 Conectado</span>
+                        </div>
+                    </div>
+
+                    <button onclick="logoutGoogle()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold py-3 px-4 rounded-xl transition border border-rose-100 flex items-center justify-center gap-2">
+                        Cerrar Sesión
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- CONFIGURACIÓN DE GOOGLE ---
+        // Pega aquí tu Client ID de Google Cloud Console. 
+        // Nota: El botón no se mostrará correctamente si dejas este string vacío o si no usas un servidor local.
+        const GOOGLE_CLIENT_ID = "TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com";
+
+        // Función que se ejecuta automáticamente cuando el SDK de Google carga
+        window.onload = function () {
+            if (GOOGLE_CLIENT_ID === "TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com") {
+                console.warn("⚠️ Debes reemplazar 'GOOGLE_CLIENT_ID' con tus credenciales reales de Google Dev Console.");
+            }
+
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse // Función que maneja la respuesta
+            });
+
+            // Renderizar el botón original de Google con estilos personalizados
+            google.accounts.id.renderButton(
+                document.getElementById("buttonDiv"),
+                { 
+                    theme: "outline", 
+                    size: "large", 
+                    width: 320,
+                    text: "signin_with", // Puede ser "signup_with" para registros
+                    shape: "pill" 
+                }
+            );
+
+            // Muestra el prompt de One Tap (opcional, la ventanita flotante)
+            google.accounts.id.prompt();
+        }
+
+        // --- MANEJO DE LA RESPUESTA (JWT) ---
+        function handleCredentialResponse(response) {
+            // Google nos devuelve un token JWT en 'response.credential'
+            const jwt = response.credential;
+            
+            // Decodificamos el JWT para extraer los datos reales del usuario (Nombre, Email, Foto)
+            const payload = decodeJwt(jwt);
+            
+            // Cambiar de vista en la UI
+            document.getElementById("login-view").classList.add("hidden");
+            document.getElementById("profile-view").classList.remove("hidden");
+
+            // Insertar datos reales
+            document.getElementById("user-name").innerText = payload.name;
+            document.getElementById("user-email").innerText = payload.email;
+            document.getElementById("user-photo").src = payload.picture;
+
+            // Miniatura en la barra de navegación
+            document.getElementById("nav-actions").innerHTML = `
+                <img src="${payload.picture}" alt="Nav avatar" class="h-8 w-8 rounded-full border border-slate-200">
+            `;
+        }
+
+        // Función auxiliar para decodificar los datos del perfil guardados en el token de Google
+        function decodeJwt(token) {
+            var base64Url = token.split('.')[1];
+            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+
+            return JSON.parse(jsonPayload);
+        }
+
+        // --- CERRAR SESIÓN ---
+        function logoutGoogle() {
+            // Resetea el estado de Google Identity
+            google.accounts.id.disableAutoSelect();
+            
+            // Recargar la página para limpiar la UI rápidamente
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>
